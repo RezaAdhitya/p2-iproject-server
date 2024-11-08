@@ -1,15 +1,13 @@
-const {User} = require('../models');
-const {OAuth2Client} = require('google-auth-library');
-const {comparePassword, createToken} = require('../helpers/crypto');
-const querystring = require('querystring');
-const axios = require('axios');
+const { User } = require("../models");
+const { OAuth2Client } = require("google-auth-library");
+const { comparePassword, createToken } = require("../helpers/crypto");
+const querystring = require("querystring");
+const axios = require("axios");
 
-// const BASE_URL = 'http://localhost:5173'  // dev
-const BASE_URL = 'https://chillclouds-ipro.web.app'  // prod
-
+const BASE_URL = "http://localhost:5173"; // dev
+// const BASE_URL = 'https://chillclouds-ipro.web.app'  // prod
 
 class userController {
-
   // * Google login
   static async googleLogin(req, res, next) {
     try {
@@ -21,7 +19,7 @@ class userController {
 
       const payload = await result.getPayload();
 
-      console.log(payload, 'yang ini');
+      console.log(payload, "yang ini");
       let [created] = await User.findOrCreate({
         where: { email: payload.email },
         defaults: {
@@ -33,83 +31,79 @@ class userController {
         hooks: false,
       });
 
-      
       let token = createToken({
         id: created.id,
         username: created.username,
         email: created.email,
         role: created.role,
       });
-      
-      console.log(token, 'cekini');
+
+      console.log(token, "cekini");
 
       res.status(200).json({ access_token: token });
-
     } catch (err) {
       console.log(err);
-      next(err)
+      next(err);
     }
   }
 
   // * User register
   static async register(req, res, next) {
     try {
-      let {username, email, password} = req.body
+      let { username, email, password } = req.body;
 
       let createdUser = await User.create({
         username,
         email,
         password,
-        role: 'user'
-      })
+        role: "user",
+      });
 
       res.status(201).json({
         id: createdUser.id,
         username: createdUser.username,
-        email: createdUser.email
-      })
-
+        email: createdUser.email,
+      });
     } catch (err) {
       console.log(err);
-      next(err) 
+      next(err);
     }
   }
 
   // * User login
   static async login(req, res, next) {
     try {
-      let {email, password} = req.body
-      if(!email) {
-        throw {code: 400, msg: "Email is required"}
+      let { email, password } = req.body;
+      if (!email) {
+        throw { code: 400, msg: "Email is required" };
       }
 
-      if(!password) {
-        throw {code: 400, msg: "Password is required"}
+      if (!password) {
+        throw { code: 400, msg: "Password is required" };
       }
 
-      let user = await User.findOne({where: {email}})
+      let user = await User.findOne({ where: { email } });
 
-      if(!user) {
-        throw {code: 401, msg: "Invalid email / password"}
+      if (!user) {
+        throw { code: 401, msg: "Invalid email / password" };
       }
 
-      let compared = comparePassword(password, user.password)
+      let compared = comparePassword(password, user.password);
 
-      if(!compared) {
-        throw {code: 401, msg: "Invalid email / password"}
+      if (!compared) {
+        throw { code: 401, msg: "Invalid email / password" };
       }
-      
+
       let token = createToken({
         id: user.id,
         email: user.email,
-        role: user.role
-      })
-      
-      res.status(200).json({access_token: token})
+        role: user.role,
+      });
 
+      res.status(200).json({ access_token: token });
     } catch (err) {
       console.log(err);
-      next(err)
+      next(err);
     }
   }
 
@@ -118,68 +112,71 @@ class userController {
       let client_id = process.env.SPOTIFY_CLIENT_ID;
       let redirect_uri = `${BASE_URL}/callbacks`;
       let state = (Math.random() + 1).toString(36).substring(7);
-      let scope = 'playlist-modify-public user-library-modify user-read-private user-read-email';
-        res.json({url: 'https://accounts.spotify.com/authorize?' +
-        querystring.stringify({
-          response_type: 'code',
-          client_id: client_id,
-          scope: scope,
-          redirect_uri: redirect_uri,
-          state: state
-        })});
+      let scope =
+        "playlist-modify-public user-library-modify user-read-private user-read-email";
+      res.json({
+        url:
+          "https://accounts.spotify.com/authorize?" +
+          querystring.stringify({
+            response_type: "code",
+            client_id: client_id,
+            scope: scope,
+            redirect_uri: redirect_uri,
+            state: state,
+          }),
+      });
     } catch (err) {
       console.log(err);
-      next(err)
+      next(err);
     }
   }
 
   static async getAuthToken(req, res, next) {
     try {
-      let code = req.body.code
+      let code = req.body.code;
       let redirect_uri = `${BASE_URL}/callbacks`;
-      let client_id = process.env.SPOTIFY_CLIENT_ID
-      let client_secret = process.env.SPOTIFY_CLIENT_SECRET
-      let {data} = await axios({
-        method: 'post',
-        url: 'https://accounts.spotify.com/api/token',
+      let client_id = process.env.SPOTIFY_CLIENT_ID;
+      let client_secret = process.env.SPOTIFY_CLIENT_SECRET;
+      let { data } = await axios({
+        method: "post",
+        url: "https://accounts.spotify.com/api/token",
         headers: {
-          Authorization: 'Basic ' + btoa(client_id + ':' + client_secret),
-          "Content-Type": 'application/x-www-form-urlencoded'
+          Authorization: "Basic " + btoa(client_id + ":" + client_secret),
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         data: {
           code,
           redirect_uri,
-          grant_type: 'authorization_code'
+          grant_type: "authorization_code",
         },
-      })
-      res.status(200).json({data})
-
+      });
+      res.status(200).json({ data });
     } catch (err) {
-      console.log(err, 'this');
+      console.log(err, "this");
     }
   }
 
   static async getMe(req, res, next) {
     try {
-      let token = req.body.code
-      let {data} = await axios({
-        method: 'get',
+      let token = req.body.code;
+      let { data } = await axios({
+        method: "get",
         url: `https://api.spotify.com/v1/me`,
         headers: {
-          Authorization: 'Bearer ' + token,
-          "Content-Type": 'application/json'
+          Authorization: "Bearer " + token,
+          "Content-Type": "application/json",
         },
-      })
-      console.log(data, 'userdata');
-      res.status(200).json(data)
+      });
+      console.log(data, "userdata");
+      res.status(200).json(data);
     } catch (err) {
-      console.log(err.response.data, 'ERR');
+      console.log(err.response.data, "ERR");
     }
   }
 
   static async spotifyFinalAuth(req, res, next) {
     try {
-      let {payload} = req.body
+      let { payload } = req.body;
 
       let [created] = await User.findOrCreate({
         where: { email: payload.email },
@@ -200,12 +197,11 @@ class userController {
       });
 
       res.status(200).json({ access_token: token });
-
     } catch (err) {
       console.log(err);
-      next(err) 
+      next(err);
     }
   }
 }
 
-module.exports = userController
+module.exports = userController;
